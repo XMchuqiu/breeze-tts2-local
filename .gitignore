@@ -1,0 +1,46 @@
+# === 模型权重与依赖（大文件，需按 README 自行下载）===
+checkpoints-1.5/
+models/
+vendor/
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# === 运行时数据（用户上传的音色、合成结果）===
+voices/
+outputs/
+demo/
+.asr_models/
+
+# === 日志 ===
+*.log
+logs/
+
+# === 构建产物 ===
+build/
+dist/
+wheels/
+*.exe
+*.spec
+
+# === 缓存与临时文件 ===
+tmp/
+.uv-cache/
+uvcache/
+.uv/
+
+# === WorkBuddy 项目数据 ===
+.workbuddy/
+
+# === 本地运行状态（由程序自动生成/重写）===
+config.json
+ui-settings.json
+
+# === 系统文件 ===
+.DS_Store
+Thumbs.db
+desktop.ini

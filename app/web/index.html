@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Breeze Voice Studio</title>
+<script src="/theme-boot.js"></script>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="app">
+  <!-- 顶部状态栏 -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">B</div>
+      <div class="brand-text">
+        <h1>Breeze Voice Studio</h1>
+        <p>本地零样本音色克隆 · 多模型可切换</p>
+      </div>
+    </div>
+
+    <!-- 模型选择入口 -->
+    <div class="model-picker" id="modelPicker">
+      <button class="model-btn" id="modelBtn" aria-haspopup="true" aria-expanded="false">
+        <span class="mb-text">
+          <span class="mb-label">当前模型</span>
+          <span class="mb-name" id="modelBtnName">检测中…</span>
+        </span>
+        <span class="mb-caret">▾</span>
+      </button>
+      <div class="model-menu" id="modelMenu" hidden>
+        <div class="mm-head">
+          <h3>选择合成模型</h3>
+          <p>切换后当前音色、文本与参数都会保留；所选模型会在首次使用时重新提取音色特征。</p>
+        </div>
+        <div class="model-list" id="modelList"></div>
+      </div>
+    </div>
+
+    <div class="status-group">
+      <div class="status-pill" id="enginePill">
+        <span class="dot" id="engineDot"></span>
+        <span id="engineText">正在检测引擎…</span>
+      </div>
+      <div class="status-pill ghost" id="vramPill">显存 —</div>
+
+      <!-- 窗口与退出 -->
+      <div class="app-menu" id="appMenu">
+        <button class="icon-btn" id="appMenuBtn" title="窗口与退出设置"
+                aria-haspopup="true" aria-expanded="false">⚙</button>
+        <div class="app-pop" id="appPop" hidden>
+          <div class="pop-head">
+            <h4>窗口与退出</h4>
+            <span class="pop-badge" id="shellBadge">检测中</span>
+          </div>
+
+          <div class="pop-theme">
+            <span class="pop-label">主题</span>
+            <div class="seg" id="themeSeg" role="radiogroup" aria-label="界面主题">
+              <button type="button" class="seg-btn" data-theme="light" role="radio" aria-checked="false">浅色</button>
+              <button type="button" class="seg-btn" data-theme="dark" role="radio" aria-checked="false">深色</button>
+              <button type="button" class="seg-btn active" data-theme="system" role="radio" aria-checked="true">跟随系统</button>
+            </div>
+            <p class="pop-note">「跟随系统」会随 Windows 的浅色 / 深色设置自动切换。</p>
+          </div>
+
+          <div class="pop-sep"></div>
+
+          <label class="pop-check">
+            <input type="checkbox" id="trayToggle" />
+            <span>最小化或关闭窗口时收进系统托盘</span>
+          </label>
+          <p class="pop-note">
+            开启后点窗口 × 只是隐藏：后端与已加载的模型继续运行。
+            托盘图标右键可「打开主窗口」或「完全退出并关闭」。
+          </p>
+
+          <button class="btn sm block" id="hideTrayBtn">立即收进托盘</button>
+
+          <div class="pop-sep"></div>
+          <p class="pop-note">
+            <b class="pop-warn">完全退出</b>会结束本窗口、本地后端、其他入口启动的后端与托盘图标，
+            并释放显存和端口；下次启动需重新加载模型。
+          </p>
+          <button class="btn danger sm block" id="fullExitBtn">完全退出并关闭</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- 左：音色库 -->
+    <section class="panel voices-panel">
+      <div class="panel-head">
+        <h2>音色库</h2>
+        <span class="count" id="voiceCount">0</span>
+      </div>
+
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept="audio/*" hidden />
+        <div class="dz-icon">↑</div>
+        <div class="dz-title">拖入或点击上传参考音频</div>
+        <div class="dz-sub">3–15 秒单人清晰语音，wav / mp3 / m4a</div>
+      </div>
+
+      <div class="upload-fields">
+        <input type="text" id="voiceName" placeholder="音色名称（可留空自动命名）" />
+        <div class="row">
+          <select id="voiceLang">
+            <option value="ZH">中文</option>
+            <option value="EN">英语</option>
+            <option value="JA">日语</option>
+            <option value="ES">西班牙语</option>
+          </select>
+          <button class="btn subtle" id="uploadBtn" disabled>提取音色</button>
+        </div>
+      </div>
+
+      <div class="voice-list" id="voiceList">
+        <div class="empty-hint">尚未添加音色</div>
+      </div>
+    </section>
+
+    <!-- 右：合成工作台 -->
+    <section class="panel studio-panel">
+      <div class="selected-voice" id="selectedVoice">
+        <span class="sv-label">当前音色</span>
+        <span class="sv-name" id="svName">未选择</span>
+        <span class="sv-source" id="svSource"></span>
+        <span class="sv-meta" id="svMeta"></span>
+        <span class="sv-engine" id="svEngine"></span>
+      </div>
+
+      <div class="editor">
+        <textarea id="textInput" maxlength="2000"
+          placeholder="输入需要朗读的文本。示例：&#10;夜色渐深，窗外的雨声把整条街都压低了。&#10;支持中英文，可用 [笑] [叹气] 等内联语音事件。"></textarea>
+        <div class="editor-foot">
+          <span id="charCount">0 / 2000</span>
+          <button class="btn text" id="clearText">清空</button>
+        </div>
+      </div>
+
+      <div class="controls">
+        <label class="field" id="emotionField">
+          <span>情感提示（可选）<b class="cap-tag" id="emotionCap"></b></span>
+          <input type="text" id="emotionText" placeholder="例：压低声音，克制而疲惫" />
+        </label>
+        <label class="field" id="speedField">
+          <span>语速 <b id="speedVal">1.00×</b><b class="cap-tag" id="speedCap"></b></span>
+          <input type="range" id="speed" min="0.5" max="2.0" step="0.05" value="1" />
+        </label>
+      </div>
+      <div class="cap-note" id="capNote" hidden></div>
+
+      <div class="action-row">
+        <button class="btn primary" id="synthBtn" disabled>开始合成</button>
+        <button class="btn subtle" id="unloadBtn" title="释放显存">卸载模型</button>
+      </div>
+
+      <div class="progress-wrap" id="progressWrap" hidden>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="progress-text" id="progressText">准备中…</div>
+      </div>
+
+      <div class="result" id="result" hidden>
+        <div class="result-head">
+          <h3>合成结果</h3>
+          <span class="result-meta" id="resultMeta"></span>
+        </div>
+        <audio id="player" controls></audio>
+        <div class="result-actions">
+          <a class="btn subtle" id="downloadBtn" download>下载 WAV</a>
+          <button class="btn subtle" id="revealBtn" title="在文件管理器中定位到该文件">在文件夹中显示</button>
+          <span class="tip" id="resultText"></span>
+        </div>
+      </div>
+
+      <!-- 合成记录：列表管理 + 打开存储目录 -->
+      <div class="library">
+        <div class="library-head">
+          <div class="lh-left">
+            <h3>合成语音</h3>
+            <span class="count" id="libCount">0</span>
+            <span class="lib-dir" id="libDir" title=""></span>
+          </div>
+          <div class="lh-right">
+            <button class="btn subtle sm" id="openDirBtn" title="在系统文件管理器中打开合成语音的存储目录">
+              <span class="ico">▤</span>打开目录
+            </button>
+            <button class="btn subtle sm" id="refreshLibBtn" title="重新读取存储目录">刷新</button>
+          </div>
+        </div>
+
+        <div class="lib-toolbar">
+          <label class="lib-check" for="selectAll">
+            <input type="checkbox" id="selectAll" />
+            <span>全选</span>
+          </label>
+          <span class="lib-sel" id="libSel">已选 0 项</span>
+          <div class="lib-actions">
+            <button class="btn text" data-batch="play" disabled>批量播放</button>
+            <button class="btn text" data-batch="rename" disabled>批量重命名</button>
+            <button class="btn text danger" data-batch="delete" disabled>删除选中</button>
+          </div>
+        </div>
+
+        <div class="library-list" id="libraryList">
+          <div class="empty-hint">正在读取合成记录…</div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- 通用确认 / 输入弹窗 -->
+<div class="modal-mask" id="modalMask" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h3 id="modalTitle">提示</h3>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot">
+      <button class="btn subtle" id="modalCancel">取消</button>
+      <button class="btn primary" id="modalOk">确定</button>
+    </div>
+  </div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
